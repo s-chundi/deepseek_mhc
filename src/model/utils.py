@@ -1,0 +1,36 @@
+from datasets import load_dataset
+from transformers import AutoTokenizer, AutoConfig, AutoModelForCausalLM
+from model.configuration_mhc_q3 import Qwen3Config
+from model.modeling_mhc_q3 import Qwen3ForCausalLM
+
+def get_gsm8k_dataset(split="train"):
+    ds = load_dataset("openai/gsm8k", "main", split=split)
+    
+    def format_gsm8k(example):
+        return {
+            "messages": [
+                {
+                    "role": "user", 
+                    "content": example["question"] + "\nPlease show your work, and write a single numerical answer at the very end after '####'. E.g. '{work} #### {answer}'."
+                },
+                {"role": "assistant", "content": example["answer"]}
+            ]
+        }
+        
+    ds = ds.map(format_gsm8k, remove_columns=['question', 'answer'])
+    return ds
+
+def get_qwen_model(checkpoint_path=None):
+    if checkpoint_path is None:
+        AutoConfig.register("qwen3", Qwen3Config, exist_ok=True)
+        AutoModelForCausalLM.register(Qwen3Config, Qwen3ForCausalLM, exist_ok=True)
+
+        model_name = "Qwen/Qwen3-0.6B"
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        model = Qwen3ForCausalLM.from_pretrained(model_name, dtype="auto", device_map="auto", attn_implementation="sdpa")
+        return tokenizer, model
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(checkpoint_path)
+        model = Qwen3ForCausalLM.from_pretrained(checkpoint_path, dtype="auto", device_map="auto", attn_implementation="sdpa")
+        return tokenizer, model
+        
