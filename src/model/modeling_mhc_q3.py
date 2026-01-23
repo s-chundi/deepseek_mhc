@@ -226,7 +226,9 @@ class Qwen3DecoderLayer(GradientCheckpointingLayer):
         self.hyperconnection_dim = config.hyperconnection_dim
         residual_stream_weights = torch.zeros((config.hyperconnection_dim,))
         self.residual_stream_weights_pre_attn = nn.Parameter(residual_stream_weights.clone())
+        self.residual_stream_scaling_attn = nn.Parameter(residual_stream_weights.clone())
         self.residual_stream_weights_post_attn = nn.Parameter(residual_stream_weights.clone())
+        self.residual_stream_scaling_mlp = nn.Parameter(residual_stream_weights.clone())
 
 
     @deprecate_kwarg("past_key_value", new_name="past_key_values", version="4.58")
@@ -261,8 +263,14 @@ class Qwen3DecoderLayer(GradientCheckpointingLayer):
             position_embeddings=position_embeddings,
             **kwargs,
         )
-        hidden_states = hidden_states[:, None, :, :].expand(B, K, S, D)
+        self.residual_stream_scaling_attn[0] = 1.0
+        hidden_states = torch.einsum(
+            "bsd,k->bksd",
+            hidden_states,
+            self.residual_stream_scaling_attn
+        )
         hidden_states = residual + hidden_states
+        residual = hidden_states
         self.residual_stream_weights_post_attn[0] = 1.0
         hidden_states = torch.einsum(
             "bksd,k->bsd",
@@ -270,10 +278,14 @@ class Qwen3DecoderLayer(GradientCheckpointingLayer):
             self.residual_stream_weights_post_attn
         )
         # Fully Connected
-        residual = hidden_states
         hidden_states = self.post_attention_layernorm(hidden_states)
         hidden_states = self.mlp(hidden_states)
-        hidden_states = hidden_states[:, None, :, :].expand(B, K, S, D)
+        self.residual_stream_scaling_mlp[0] = 1.0
+        hidden_states = torch.einsum(
+            "bsd,k->bksd",
+            hidden_states,
+            self.residual_stream_scaling_mlp
+        )
         hidden_states = residual + hidden_states
         return hidden_states
 
