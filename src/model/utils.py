@@ -1,7 +1,15 @@
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoConfig, AutoModelForCausalLM
-from model.configuration_mhc_q3 import Qwen3Config
-from model.modeling_mhc_q3 import Qwen3ForCausalLM
+
+from .configuration_mhc_q3 import Qwen3Config
+from .modeling_mhc_q3 import Qwen3ForCausalLM
+
+
+def register_custom_model():
+    """Register the custom MHC model with transformers AutoClasses."""
+    AutoConfig.register("qwen3", Qwen3Config, exist_ok=True)
+    AutoModelForCausalLM.register(Qwen3Config, Qwen3ForCausalLM, exist_ok=True)
+
 
 def get_gsm8k_dataset(split="train"):
     ds = load_dataset("openai/gsm8k", "main", split=split)
@@ -21,16 +29,16 @@ def get_gsm8k_dataset(split="train"):
     return ds
 
 def get_qwen_model(checkpoint_path=None):
-    if checkpoint_path is None:
-        AutoConfig.register("qwen3", Qwen3Config, exist_ok=True)
-        AutoModelForCausalLM.register(Qwen3Config, Qwen3ForCausalLM, exist_ok=True)
+    register_custom_model()
 
+    if checkpoint_path is None:
         model_name = "Qwen/Qwen3-0.6B"
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model = Qwen3ForCausalLM.from_pretrained(model_name, dtype="auto", device_map="auto", attn_implementation="sdpa")
-        return tokenizer, model
     else:
-        tokenizer = AutoTokenizer.from_pretrained(checkpoint_path)
-        model = Qwen3ForCausalLM.from_pretrained(checkpoint_path, dtype="auto", device_map="auto", attn_implementation="sdpa")
-        return tokenizer, model
+        model_name = checkpoint_path
+
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = Qwen3ForCausalLM.from_pretrained(
+        model_name, dtype="auto", device_map="auto", attn_implementation="sdpa"
+    )
+    return tokenizer, model
         

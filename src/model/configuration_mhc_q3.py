@@ -1,17 +1,3 @@
-# coding=utf-8
-# Copyright 2024 The Qwen team, Alibaba Group and the HuggingFace Inc. team. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """Qwen3 model configuration"""
 
 from transformers.configuration_utils import PretrainedConfig, layer_type_validation
@@ -121,6 +107,8 @@ class Qwen3Config(PretrainedConfig):
             Attention pattern for each layer.
         attention_dropout (`float`, *optional*, defaults to 0.0):
             The dropout ratio for the attention probabilities.
+        hyperconnection_dim (`int`, optional, defaults to 4):
+            The expansion dim of the residual stream
 
     ```python
     >>> from transformers import Qwen3Model, Qwen3Config
@@ -177,8 +165,10 @@ class Qwen3Config(PretrainedConfig):
         max_window_layers=28,
         layer_types=None,
         attention_dropout=0.0,
+        hyperconnection_dim=4,
         **kwargs,
     ):
+        self.hyperconnection_dim = hyperconnection_dim
         self.vocab_size = vocab_size
         self.max_position_embeddings = max_position_embeddings
         self.hidden_size = hidden_size
