@@ -228,11 +228,11 @@ class Qwen3DecoderLayer(GradientCheckpointingLayer):
 
         self.residual_stream_weights_attn = nn.Parameter(torch.zeros(self.hyperconnection_dim))
         self.residual_stream_scaling_attn = nn.Parameter(torch.zeros(self.hyperconnection_dim))
-        # self.residual_stream_mixing_attn = nn.Parameter(torch.zeros(self.hyperconnection_dim, self.hyperconnection_dim))
+        self.residual_stream_mixing_attn = nn.Parameter(torch.eye(self.hyperconnection_dim))
         
         self.residual_stream_weights_mlp = nn.Parameter(torch.zeros(self.hyperconnection_dim))
         self.residual_stream_scaling_mlp = nn.Parameter(torch.zeros(self.hyperconnection_dim))
-        # self.residual_stream_mixing_mlp = nn.Parameter(torch.zeros(self.hyperconnection_dim, self.hyperconnection_dim))
+        self.residual_stream_mixing_mlp = nn.Parameter(torch.eye(self.hyperconnection_dim))
 
     @deprecate_kwarg("past_key_value", new_name="past_key_values", version="4.58")
     def forward(
@@ -273,6 +273,11 @@ class Qwen3DecoderLayer(GradientCheckpointingLayer):
             hidden_states,
             self.residual_stream_scaling_attn
         )
+        residual = torch.einsum(
+            "bksd,kl->blsd",
+            residual,
+            self.residual_stream_mixing_attn
+        )
         # End MCH steps
         hidden_states = residual + hidden_states
         residual = hidden_states
@@ -292,6 +297,11 @@ class Qwen3DecoderLayer(GradientCheckpointingLayer):
             "bsd,k->bksd",
             hidden_states,
             self.residual_stream_scaling_mlp
+        )
+        residual = torch.einsum(
+            "bksd,kl->blsd",
+            residual,
+            self.residual_stream_mixing_mlp
         )
         # End MCH steps
         hidden_states = residual + hidden_states
@@ -315,6 +325,11 @@ class Qwen3PreTrainedModel(PreTrainedModel):
         "hidden_states": Qwen3DecoderLayer,
         "attentions": Qwen3Attention,
     }
+
+    def _init_weights(self, module):
+        if isinstance(module, Qwen3DecoderLayer):
+            module.residual_stream_mixing_attn.data.copy_(torch.eye(module.hyperconnection_dim))
+            module.residual_stream_mixing_mlp.data.copy_(torch.eye(module.hyperconnection_dim))
 
 
 class Qwen3RotaryEmbedding(nn.Module):
