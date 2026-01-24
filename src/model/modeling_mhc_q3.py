@@ -224,12 +224,15 @@ class Qwen3DecoderLayer(GradientCheckpointingLayer):
         self.attention_type = config.layer_types[layer_idx]
         
         self.hyperconnection_dim = config.hyperconnection_dim
-        residual_stream_weights = torch.zeros((config.hyperconnection_dim,))
-        self.residual_stream_weights_pre_attn = nn.Parameter(residual_stream_weights.clone())
-        self.residual_stream_scaling_attn = nn.Parameter(residual_stream_weights.clone())
-        self.residual_stream_weights_post_attn = nn.Parameter(residual_stream_weights.clone())
-        self.residual_stream_scaling_mlp = nn.Parameter(residual_stream_weights.clone())
+        std = (2.0 / config.hyperconnection_dim)**0.5 * 0.01
 
+        self.residual_stream_weights_attn = nn.Parameter(torch.randn(self.hyperconnection_dim) * std)
+        self.residual_stream_scaling_attn = nn.Parameter(torch.randn(self.hyperconnection_dim) * std)
+        self.residual_stream_mixing_attn = nn.Parameter(torch.randn(self.hyperconnection_dim, self.hyperconnection_dim) * std)
+        
+        self.residual_stream_weights_mlp = nn.Parameter(torch.randn(self.hyperconnection_dim) * std)
+        self.residual_stream_scaling_mlp = nn.Parameter(torch.randn(self.hyperconnection_dim) * std)
+        self.residual_stream_mixing_mlp = nn.Parameter(torch.randn(self.hyperconnection_dim, self.hyperconnection_dim) * std)
 
     @deprecate_kwarg("past_key_value", new_name="past_key_values", version="4.58")
     def forward(
@@ -244,15 +247,14 @@ class Qwen3DecoderLayer(GradientCheckpointingLayer):
         **kwargs: Unpack[TransformersKwargs],
     ) -> torch.Tensor:
         residual = hidden_states
-        B, K, S, D = hidden_states.shape
-        self.residual_stream_weights_pre_attn[0] = 1.0
+        # Begin MCH steps
         hidden_states = torch.einsum(
             "bksd,k->bsd",
             hidden_states,
-            self.residual_stream_weights_pre_attn
+            self.residual_stream_weights_attn
         )
+        # End MCH steps
         hidden_states = self.input_layernorm(hidden_states)
-        # Self Attention
         hidden_states, _ = self.self_attn(
             hidden_states=hidden_states,
             attention_mask=attention_mask,
@@ -263,29 +265,41 @@ class Qwen3DecoderLayer(GradientCheckpointingLayer):
             position_embeddings=position_embeddings,
             **kwargs,
         )
-        self.residual_stream_scaling_attn[0] = 1.0
+        # Begin MCH steps
         hidden_states = torch.einsum(
             "bsd,k->bksd",
             hidden_states,
             self.residual_stream_scaling_attn
         )
+        residual = torch.einsum(
+            "bksd,kl->blsd", # k = l = hyperconnection_dim
+            residual,
+            self.residual_stream_mixing_attn
+        )
+        # End MCH steps
         hidden_states = residual + hidden_states
         residual = hidden_states
-        self.residual_stream_weights_post_attn[0] = 1.0
+        # Begin MCH steps
         hidden_states = torch.einsum(
             "bksd,k->bsd",
             hidden_states,
-            self.residual_stream_weights_post_attn
+            self.residual_stream_weights_attn
         )
-        # Fully Connected
+        # End MCH steps
         hidden_states = self.post_attention_layernorm(hidden_states)
         hidden_states = self.mlp(hidden_states)
-        self.residual_stream_scaling_mlp[0] = 1.0
+        # Begin MCH steps
         hidden_states = torch.einsum(
             "bsd,k->bksd",
             hidden_states,
             self.residual_stream_scaling_mlp
         )
+        residual = torch.einsum(
+            "bksd,kl->blsd", # k = l = hyperconnection_dim
+            residual,
+            self.residual_stream_mixing_mlp
+        )
+        # End MCH steps
         hidden_states = residual + hidden_states
         return hidden_states
 
@@ -362,7 +376,8 @@ class Qwen3Model(Qwen3PreTrainedModel):
         self.has_sliding_layers = "sliding_attention" in self.config.layer_types
 
         self.hyperconnection_dim = config.hyperconnection_dim
-        residual_stream_weights = torch.zeros((config.hyperconnection_dim,))
+        std = (2.0 / config.hyperconnection_dim)**0.5 * 0.01
+        residual_stream_weights = torch.randn(config.hyperconnection_dim) * std
         self.residual_stream_weights = nn.Parameter(residual_stream_weights)
         # Initialize weights and apply final processing
         self.post_init()
@@ -435,7 +450,7 @@ class Qwen3Model(Qwen3PreTrainedModel):
                 position_embeddings=position_embeddings,
                 **kwargs,
             )
-        self.residual_stream_weights[0] = 1.0
+
         hidden_states = torch.einsum(
             "bksd,k->bsd",
             hidden_states,

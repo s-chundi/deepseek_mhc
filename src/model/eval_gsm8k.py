@@ -38,7 +38,7 @@ def evaluate_gsm8k(
 
     results = lm_eval.simple_evaluate(
         model=lm,
-        tasks=["gsm8k_cot"],
+        tasks=["gsm8k"],
         num_fewshot=num_fewshot,
         limit=limit,
     )
@@ -47,7 +47,7 @@ def evaluate_gsm8k(
     print("GSM8K Results")
     print("=" * 60)
 
-    gsm8k_results = results["results"]["gsm8k_cot"]
+    gsm8k_results = results["results"]["gsm8k"]
     for metric, value in gsm8k_results.items():
         if isinstance(value, float):
             print(f"{metric}: {value:.4f}")
