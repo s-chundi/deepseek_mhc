@@ -1,3 +1,4 @@
+"""ALL this does is save the model at this stage, doesn't actually train anything"""
 from trl import SFTTrainer, SFTConfig
 from transformers import TrainingArguments
 from datasets import load_dataset
