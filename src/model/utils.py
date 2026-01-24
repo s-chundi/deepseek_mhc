@@ -11,19 +11,21 @@ def register_custom_model():
     AutoModelForCausalLM.register(Qwen3Config, Qwen3ForCausalLM, exist_ok=True)
 
 
-def get_gsm8k_dataset(split="train"):
+def get_gsm8k_dataset(tokenizer, split="train"):
     ds = load_dataset("openai/gsm8k", "main", split=split)
     
     def format_gsm8k(example):
-        return {
-            "messages": [
-                {
-                    "role": "user", 
-                    "content": example["question"] + "\nPlease show your work, and write a single numerical answer at the very end after '####'. E.g. '{work} #### {answer}'."
-                },
-                {"role": "assistant", "content": example["answer"]}
-            ]
-        }
+        messages = [
+            {
+                "role": "user", 
+                "content": example["question"] + "\nPlease show your work, and write a single numerical answer at the very end after '####'. E.g. '{work} #### {answer}'."
+            },
+            {"role": "assistant", "content": example["answer"]}
+        ]
+        
+        text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
+        
+        return {"text": text}
         
     ds = ds.map(format_gsm8k, remove_columns=['question', 'answer'])
     return ds

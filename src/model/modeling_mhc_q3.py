@@ -248,7 +248,6 @@ class Qwen3DecoderLayer(GradientCheckpointingLayer):
     ) -> torch.Tensor:
         residual = hidden_states
         # Begin MCH steps
-        self.residual_stream_weights_attn[0] = 1.0
         hidden_states = torch.einsum(
             "bksd,k->bsd",
             hidden_states,
@@ -267,7 +266,6 @@ class Qwen3DecoderLayer(GradientCheckpointingLayer):
             **kwargs,
         )
         # Begin MCH steps
-        self.residual_stream_scaling_attn[0] = 1.0
         hidden_states = torch.einsum(
             "bsd,k->bksd",
             hidden_states,
@@ -282,17 +280,15 @@ class Qwen3DecoderLayer(GradientCheckpointingLayer):
         hidden_states = residual + hidden_states
         residual = hidden_states
         # Begin MCH steps
-        self.residual_stream_weights_attn[0] = 1.0
         hidden_states = torch.einsum(
             "bksd,k->bsd",
             hidden_states,
-            self.residual_stream_weights_attn
+            self.residual_stream_weights_mlp
         )
         # End MCH steps
         hidden_states = self.post_attention_layernorm(hidden_states)
         hidden_states = self.mlp(hidden_states)
         # Begin MCH steps
-        self.residual_stream_scaling_mlp[0] = 1.0
         hidden_states = torch.einsum(
             "bsd,k->bksd",
             hidden_states,
@@ -325,11 +321,6 @@ class Qwen3PreTrainedModel(PreTrainedModel):
         "hidden_states": Qwen3DecoderLayer,
         "attentions": Qwen3Attention,
     }
-
-    def _init_weights(self, module):
-        if isinstance(module, Qwen3DecoderLayer):
-            module.residual_stream_mixing_attn.data.copy_(torch.eye(module.hyperconnection_dim))
-            module.residual_stream_mixing_mlp.data.copy_(torch.eye(module.hyperconnection_dim))
 
 
 class Qwen3RotaryEmbedding(nn.Module):
@@ -458,7 +449,7 @@ class Qwen3Model(Qwen3PreTrainedModel):
                 position_embeddings=position_embeddings,
                 **kwargs,
             )
-        self.residual_stream_weights[0] = 1.0
+
         hidden_states = torch.einsum(
             "bksd,k->bsd",
             hidden_states,
