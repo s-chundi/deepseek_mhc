@@ -58,8 +58,6 @@ def train():
         per_device_train_batch_size=4,
         per_device_eval_batch_size=4,
         gradient_accumulation_steps=8,
-        
-        dataloader_num_workers=4,
 
         learning_rate=3e-4,
         bf16=True,
@@ -91,7 +89,9 @@ def train():
         args=training_args,
         callbacks=[early_stopping],
     )
+    print("Evaluating first...")
     trainer.evaluate()
+    print("Training...")
     trainer.train()
 
     trainer.model.save_pretrained("./checkpoints/final_model")
