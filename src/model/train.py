@@ -80,7 +80,7 @@ def train():
     print_config({"train": cfg})
 
     tokenizer, model = get_qwen_model(cfg["model_name"])
-    model = freeze_pretrained_weights(model)
+    # model = freeze_pretrained_weights(model)
 
     train_ds = get_gsm8k_dataset(tokenizer, split="train")
     test_ds = get_gsm8k_dataset(tokenizer, split="test")

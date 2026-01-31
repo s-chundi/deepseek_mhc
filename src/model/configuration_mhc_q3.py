@@ -107,8 +107,6 @@ class Qwen3Config(PretrainedConfig):
             Attention pattern for each layer.
         attention_dropout (`float`, *optional*, defaults to 0.0):
             The dropout ratio for the attention probabilities.
-        hyperconnection_dim (`int`, optional, defaults to 4):
-            The expansion dim of the residual stream
 
     ```python
     >>> from transformers import Qwen3Model, Qwen3Config
@@ -165,10 +163,8 @@ class Qwen3Config(PretrainedConfig):
         max_window_layers=28,
         layer_types=None,
         attention_dropout=0.0,
-        hyperconnection_dim=4,
         **kwargs,
     ):
-        self.hyperconnection_dim = hyperconnection_dim
         self.vocab_size = vocab_size
         self.max_position_embeddings = max_position_embeddings
         self.hidden_size = hidden_size
