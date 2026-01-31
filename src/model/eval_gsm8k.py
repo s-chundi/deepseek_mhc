@@ -5,7 +5,7 @@ import argparse
 import lm_eval
 from lm_eval.models.huggingface import HFLM
 
-from model.utils import get_qwen_model
+from model.utils import get_qwen_model, get_best_device
 
 
 def evaluate_gsm8k(
@@ -13,7 +13,7 @@ def evaluate_gsm8k(
     batch_size: int = 4,
     num_fewshot: int = 0,
     limit: int | None = None,
-    device: str = "mps",
+    device: str | None = None,
 ):
     """
     Evaluate the model on GSM8K.
@@ -23,8 +23,11 @@ def evaluate_gsm8k(
         batch_size: Batch size for evaluation.
         num_fewshot: Number of few-shot examples (GSM8K standard is 5 or 8).
         limit: Limit number of examples (for debugging). None = full dataset.
-        device: Device to run on.
+        device: Device to run on. If None, automatically selects best available.
     """
+    if device is None:
+        device = get_best_device()
+
     tokenizer, model = get_qwen_model(checkpoint_path=model_path)
 
     lm = HFLM(
@@ -85,8 +88,8 @@ def main():
     parser.add_argument(
         "--device",
         type=str,
-        default="mps",
-        help="Device to run on (cuda, mps, cpu)",
+        default=None,
+        help="Device to run on (cuda, mps, cpu). Auto-detects if not specified.",
     )
     args = parser.parse_args()
 

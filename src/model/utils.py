@@ -7,6 +7,16 @@ from .configuration_mhc_q3 import Qwen3Config
 from .modeling_mhc_q3 import Qwen3ForCausalLM
 
 
+def get_best_device():
+    """Get the best available device: cuda > mps > cpu."""
+    if torch.cuda.is_available():
+        return "cuda"
+    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return "mps"
+    else:
+        return "cpu"
+
+
 class LogCompletionsCallback(TrainerCallback):
     """Logs sample prompts and completions to wandb every logging_steps."""
 
