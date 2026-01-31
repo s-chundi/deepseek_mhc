@@ -1,8 +1,26 @@
+from pathlib import Path
+import yaml
+
 from trl import SFTTrainer, SFTConfig
 from transformers import EarlyStoppingCallback
 from model.utils import get_gsm8k_dataset, get_qwen_model, get_model_stats
 import torch
 import wandb
+
+
+def load_config():
+    config_path = Path(__file__).parent / "config.yaml"
+    with open(config_path) as f:
+        return yaml.safe_load(f)
+
+
+def print_config(config):
+    print("=" * 60)
+    print("Training Configuration")
+    print("=" * 60)
+    print(yaml.dump(config, default_flow_style=False, sort_keys=False))
+    print("=" * 60)
+
 
 def log_model_stats(model):
     """Log model statistics to W&B."""
@@ -18,45 +36,49 @@ def log_model_stats(model):
 
 
 def train():
-    tokenizer, model = get_qwen_model("Qwen/Qwen3-0.6B")
+    full_config = load_config()
+    cfg = full_config["train"]
+    print_config({"train": cfg})
+
+    tokenizer, model = get_qwen_model(cfg["model_name"])
 
     train_ds = get_gsm8k_dataset(tokenizer, split="train")
     test_ds = get_gsm8k_dataset(tokenizer, split="test")
 
     training_args = SFTConfig(
-        output_dir="./finetuning_results",
+        output_dir=cfg["output_dir"],
 
-        packing=True,
-        packing_strategy="wrapped",
-        max_length=1024,
+        packing=cfg["packing"],
+        packing_strategy=cfg["packing_strategy"],
+        max_length=cfg["max_length"],
 
-        num_train_epochs=1,
+        num_train_epochs=cfg["num_train_epochs"],
 
-        per_device_train_batch_size=4,
-        per_device_eval_batch_size=4,
-        gradient_accumulation_steps=8,
+        per_device_train_batch_size=cfg["per_device_train_batch_size"],
+        per_device_eval_batch_size=cfg["per_device_eval_batch_size"],
+        gradient_accumulation_steps=cfg["gradient_accumulation_steps"],
 
-        learning_rate=1e-6,
-        bf16=True,
+        learning_rate=cfg["learning_rate"],
+        bf16=cfg["bf16"],
 
-        report_to="wandb",
+        report_to=cfg["report_to"],
 
-        do_eval=True,
-        eval_strategy="steps",
-        eval_steps=50,
-        logging_steps=50,
+        do_eval=cfg["do_eval"],
+        eval_strategy=cfg["eval_strategy"],
+        eval_steps=cfg["eval_steps"],
+        logging_steps=cfg["logging_steps"],
 
-        save_strategy="steps",
-        save_steps=50,
-        save_total_limit=3,
-        load_best_model_at_end=True,
-        metric_for_best_model="eval_loss",
-        greater_is_better=False,
-        gradient_checkpointing=False,
+        save_strategy=cfg["save_strategy"],
+        save_steps=cfg["save_steps"],
+        save_total_limit=cfg["save_total_limit"],
+        load_best_model_at_end=cfg["load_best_model_at_end"],
+        metric_for_best_model=cfg["metric_for_best_model"],
+        greater_is_better=cfg["greater_is_better"],
+        gradient_checkpointing=cfg["gradient_checkpointing"],
     )
     early_stopping = EarlyStoppingCallback(
-        early_stopping_patience=3,
-        early_stopping_threshold=0.01,
+        early_stopping_patience=cfg["early_stopping_patience"],
+        early_stopping_threshold=cfg["early_stopping_threshold"],
     )
 
     trainer = SFTTrainer(
@@ -74,9 +96,9 @@ def train():
     print("Training...")
     trainer.train()
 
-    trainer.model.save_pretrained("./checkpoints/final_model")
-    tokenizer.save_pretrained("./checkpoints/final_model")
-    print(f"Training complete. Best model saved to ./checkpoints/final_model")
+    trainer.model.save_pretrained(cfg["save_dir"])
+    tokenizer.save_pretrained(cfg["save_dir"])
+    print(f"Training complete. Best model saved to {cfg['save_dir']}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,67 @@
+# Training configuration for deepseek-mhc
+
+train:
+  model_name: "Qwen/Qwen3-0.6B"
+  output_dir: "./finetuning_results/baseline_"
+  save_dir: "./checkpoints/final_model"
+
+  # Packing settings
+  packing: true
+  packing_strategy: "wrapped"
+  max_length: 1024
+
+  # Training params
+  num_train_epochs: 1
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 8
+  learning_rate: 1.0e-6
+  bf16: true
+  gradient_checkpointing: false
+
+  # Logging
+  report_to: "wandb"
+  logging_steps: 50
+
+  # Evaluation
+  do_eval: true
+  eval_strategy: "steps"
+  eval_steps: 50
+
+  # Saving
+  save_strategy: "steps"
+  save_steps: 50
+  save_total_limit: 3
+  load_best_model_at_end: true
+  metric_for_best_model: "eval_loss"
+  greater_is_better: false
+
+  # Early stopping
+  early_stopping_patience: 3
+  early_stopping_threshold: 0.01
+
+posttrain:
+  model_path: "checkpoints/final_model"
+  output_dir: "grpo_output"
+  dataset_size: 20  # Set to null for full dataset
+
+  # Generation settings
+  num_generations: 4
+  max_completion_length: 768
+  num_samples_to_log: 2
+
+  # Training params
+  num_train_epochs: 1
+  gradient_accumulation_steps: 2
+  learning_rate: 1.0e-5
+  bf16: true
+  beta: 0.04
+
+  # Scheduler
+  warmup_ratio: 0.1
+  lr_scheduler_type: "cosine"
+
+  # Logging and saving
+  report_to: "wandb"
+  logging_steps: 10
+  save_steps: 50
