@@ -74,7 +74,6 @@ def register_custom_model():
 
 def get_gsm8k_dataset(tokenizer, split="train"):
     ds = load_dataset("openai/gsm8k", "main", split=split)
-    ds = ds.select(range(51))
     
     def format_gsm8k(example):
         messages = [
@@ -94,7 +93,6 @@ def get_gsm8k_dataset(tokenizer, split="train"):
 
 def get_gsm8k_dataset_grpo(tokenizer, split="train"):
     ds = load_dataset("openai/gsm8k", "main", split=split)
-    ds = ds.select(range(51))
     
     def format_gsm8k(example):
         try:

@@ -14,6 +14,13 @@ uv sync
 
 ## Quickstart
 
+0. Remove these lines from `src/model/train.py` and `src/model/posttrain.py`:
+```python
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,6,7"
+```
+(I'm on a shared GPU and this was the quickest way to get the unused GPUs)
+
 1. SFT the model (needed to initialize the custom parameters):
 
 ```bash
