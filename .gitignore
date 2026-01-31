@@ -16,4 +16,4 @@ checkpoints/
 
 wandb/
 finetuning_results/
-grpo_output/
+grpo_results/

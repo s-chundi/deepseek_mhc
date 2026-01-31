@@ -52,13 +52,13 @@ posttrain:
 
   # Generation settings
   num_generations: 4
-  max_completion_length: 768
+  max_completion_length: 2048
   num_samples_to_log: 2
 
   # Training params
   num_train_epochs: 1
   gradient_accumulation_steps: 2
-  learning_rate: 1.0e-5
+  learning_rate: 5.0e-6
   bf16: true
   beta: 0.04
 
