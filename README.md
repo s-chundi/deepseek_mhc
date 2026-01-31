@@ -35,6 +35,18 @@ This loads `Qwen/Qwen3-0.6B`, initializes the custom parameters, and saves based
 uv run src/model/eval_gsm8k.py [path to model checkpoint]
 ```
 
+3. Posttrain the model:
+
+```bash
+uv run src/model/posttrain.py
+```
+
+4. Evaluate on GSM8K (again):
+
+```bash
+uv run src/model/eval_gsm8k.py [path to model checkpoint]
+```
+
 ## Project Structure
 
 ```
