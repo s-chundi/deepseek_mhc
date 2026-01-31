@@ -6,10 +6,9 @@ import yaml
 
 from trl import GRPOTrainer, GRPOConfig
 from datasets import load_dataset
-from transformers import TrainerCallback
 import wandb
 
-from model.utils import get_qwen_model, get_gsm8k_dataset_grpo
+from model.utils import get_qwen_model, get_gsm8k_dataset_grpo, LogCompletionsCallback
 
 
 def load_config():
@@ -24,38 +23,6 @@ def print_config(config):
     print("=" * 60)
     print(yaml.dump(config, default_flow_style=False, sort_keys=False))
     print("=" * 60)
-
-
-class LogCompletionsCallback(TrainerCallback):
-    """Logs sample prompts and completions to wandb every logging_steps."""
-
-    def __init__(self, num_samples=4):
-        self.num_samples = num_samples
-        self._last_prompts = None
-        self._last_completions = None
-
-    def on_step_end(self, args, state, control, **kwargs):
-        if state.global_step % args.logging_steps != 0:
-            return
-
-        if self._last_prompts is None or self._last_completions is None:
-            return
-
-        table_data = []
-        num_to_log = min(self.num_samples, len(self._last_prompts))
-        for i in range(num_to_log):
-            table_data.append([
-                self._last_prompts[i],
-                self._last_completions[i]
-            ])
-
-        table = wandb.Table(columns=["prompt", "completion"], data=table_data)
-        wandb.log({"completions": table}, step=state.global_step)
-
-    def store_completions(self, prompts, completions):
-        """Called externally to store the latest prompts and completions."""
-        self._last_prompts = prompts
-        self._last_completions = completions
 
 
 def posttrain():

@@ -1,9 +1,42 @@
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoConfig, AutoModelForCausalLM
 import torch
-
+from transformers import TrainerCallback
+import wandb
 from .configuration_mhc_q3 import Qwen3Config
 from .modeling_mhc_q3 import Qwen3ForCausalLM
+
+
+class LogCompletionsCallback(TrainerCallback):
+    """Logs sample prompts and completions to wandb every logging_steps."""
+
+    def __init__(self, num_samples=4):
+        self.num_samples = num_samples
+        self._last_prompts = None
+        self._last_completions = None
+
+    def on_step_end(self, args, state, control, **kwargs):
+        if state.global_step % args.logging_steps != 0:
+            return
+
+        if self._last_prompts is None or self._last_completions is None:
+            return
+
+        table_data = []
+        num_to_log = min(self.num_samples, len(self._last_prompts))
+        for i in range(num_to_log):
+            table_data.append([
+                self._last_prompts[i],
+                self._last_completions[i]
+            ])
+
+        table = wandb.Table(columns=["prompt", "completion"], data=table_data)
+        wandb.log({"completions": table}, step=state.global_step)
+
+    def store_completions(self, prompts, completions):
+        """Called externally to store the latest prompts and completions."""
+        self._last_prompts = prompts
+        self._last_completions = completions
 
 
 def get_model_stats(model):
@@ -31,7 +64,7 @@ def register_custom_model():
 
 def get_gsm8k_dataset(tokenizer, split="train"):
     ds = load_dataset("openai/gsm8k", "main", split=split)
-    ds.select(range(51))
+    ds = ds.select(range(51))
     
     def format_gsm8k(example):
         messages = [
@@ -51,6 +84,7 @@ def get_gsm8k_dataset(tokenizer, split="train"):
 
 def get_gsm8k_dataset_grpo(tokenizer, split="train"):
     ds = load_dataset("openai/gsm8k", "main", split=split)
+    ds = ds.select(range(51))
     
     def format_gsm8k(example):
         try:
