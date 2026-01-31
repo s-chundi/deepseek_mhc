@@ -1,51 +1,28 @@
 from trl import SFTTrainer, SFTConfig
 from transformers import EarlyStoppingCallback
-from model.utils import get_gsm8k_dataset, get_qwen_model
+from model.utils import get_gsm8k_dataset, get_qwen_model, get_model_stats
 import torch
+import wandb
 
-
-TRAINABLE_PARAM_PATTERNS = [
-    "residual_stream_mixing_attn",
-    "residual_stream_mixing_mlp",
-    "residual_stream_scaling_attn",
-    "residual_stream_scaling_mlp",
-    "residual_stream_weights_attn",
-    "residual_stream_weights_mlp",
-    "residual_stream_weights",
-]
-
-
-def freeze_pretrained_weights(model):
-    """Freeze all weights except the new residual stream parameters."""
-    trainable_count = 0
-    frozen_count = 0
-
-    for name, param in model.named_parameters():
-        if any(pattern in name for pattern in TRAINABLE_PARAM_PATTERNS):
-            if "mixing" in name:
-                param.data.copy_(torch.eye(param.shape[0], param.shape[1], device=param.device))
-            else:
-                pass_through = torch.zeros_like(param.data)
-                pass_through[0] = 1.0
-                param.data.copy_(pass_through)
-            param.data.add_(torch.randn_like(param.data) * 1e-3)
-            param.requires_grad = True
-            trainable_count += 1
-        else:
-            param.requires_grad = False
-            frozen_count += 1
-
-    print(f"Frozen parameters: {frozen_count}")
-    print(f"Trainable parameters: {trainable_count}")
-    return model
+def log_model_stats(model):
+    """Log model statistics to W&B."""
+    stats = get_model_stats(model)
+    wandb.log({
+        "model/total_params": stats["total_params"],
+        "model/trainable_params": stats["trainable_params"],
+        "model/size_mb": stats["size_mb"],
+    })
+    print(f"Model stats - Total params: {stats['total_params']:,}, "
+          f"Trainable: {stats['trainable_params']:,}, "
+          f"Size: {stats['size_mb']:.2f} MB")
 
 
 def train():
-    tokenizer, model = get_qwen_model("checkpoints/initial_model")
-    model = freeze_pretrained_weights(model)
+    tokenizer, model = get_qwen_model("Qwen/Qwen3-0.6B")
+
     train_ds = get_gsm8k_dataset(tokenizer, split="train")
     test_ds = get_gsm8k_dataset(tokenizer, split="test")
-    
+
     training_args = SFTConfig(
         output_dir="./finetuning_results",
 
@@ -53,13 +30,13 @@ def train():
         packing_strategy="wrapped",
         max_length=1024,
 
-        num_train_epochs=3,
+        num_train_epochs=1,
 
         per_device_train_batch_size=4,
         per_device_eval_batch_size=4,
         gradient_accumulation_steps=8,
 
-        learning_rate=3e-4,
+        learning_rate=1e-6,
         bf16=True,
 
         report_to="wandb",
@@ -89,6 +66,9 @@ def train():
         args=training_args,
         callbacks=[early_stopping],
     )
+
+    log_model_stats(model)
+
     print("Evaluating first...")
     trainer.evaluate()
     print("Training...")

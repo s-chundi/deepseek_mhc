@@ -1,15 +1,33 @@
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoConfig, AutoModelForCausalLM
+import torch
 
 from .configuration_mhc_q3 import Qwen3Config
 from .modeling_mhc_q3 import Qwen3ForCausalLM
+
+
+def get_model_stats(model):
+    """Get model size in MB and number of parameters."""
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+    # Calculate size in MB (assuming fp32 for simplicity, adjust if using different dtype)
+    param_size_bytes = sum(
+        p.numel() * p.element_size() for p in model.parameters()
+    )
+    size_mb = param_size_bytes / (1024 * 1024)
+
+    return {
+        "total_params": total_params,
+        "trainable_params": trainable_params,
+        "size_mb": size_mb,
+    }
 
 
 def register_custom_model():
     """Register the custom MHC model with transformers AutoClasses."""
     AutoConfig.register("qwen3", Qwen3Config, exist_ok=True)
     AutoModelForCausalLM.register(Qwen3Config, Qwen3ForCausalLM, exist_ok=True)
-
 
 def get_gsm8k_dataset(tokenizer, split="train"):
     ds = load_dataset("openai/gsm8k", "main", split=split)
