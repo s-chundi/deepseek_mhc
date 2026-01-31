@@ -79,14 +79,15 @@ def log_model_stats(model):
           f"Size: {stats['size_mb']:.2f} MB")
 
 
-def train():
+def train(freeze_weights=True):
     full_config = load_config()
     wandb.init(project=full_config["wandb_project"])
     cfg = full_config["train"]
     print_config({"train": cfg})
 
     tokenizer, model = get_qwen_model(cfg["model_name"])
-    model = freeze_pretrained_weights(model)
+    if freeze_weights:
+        model = freeze_pretrained_weights(model)
 
     train_ds = get_gsm8k_dataset(tokenizer, split="train")
     test_ds = get_gsm8k_dataset(tokenizer, split="test")
@@ -148,4 +149,10 @@ def train():
 
 
 if __name__ == "__main__":
-    train()
+    args = sys.argv[1:]
+    if "--all-weights" in args:
+        freeze_weights = False
+    else:
+        freeze_weights = True
+        
+    train(freeze_weights)

@@ -257,6 +257,13 @@ class Qwen3DecoderLayer(GradientCheckpointingLayer):
             self.residual_stream_scaling_mlp.data = self.residual_stream_scaling_mlp.data.to(target_device)
             self.residual_stream_mixing_mlp.data = self.residual_stream_mixing_mlp.data.to(target_device)
 
+    def sinkhorn_knopp(self, x):
+        for _ in range(5):
+            x = x / x.sum(dim=0, keepdim=True)
+            x = x / x.sum(dim=1, keepdim=True)
+            
+        return x
+    
     @deprecate_kwarg("past_key_value", new_name="past_key_values", version="4.58")
     def forward(
         self,
@@ -275,7 +282,7 @@ class Qwen3DecoderLayer(GradientCheckpointingLayer):
         hidden_states = torch.einsum(
             "bksd,k->bsd",
             hidden_states,
-            self.residual_stream_weights_attn
+            torch.sigmoid(self.residual_stream_weights_attn)
         )
         # End MCH steps
         hidden_states = self.input_layernorm(hidden_states)
@@ -293,12 +300,12 @@ class Qwen3DecoderLayer(GradientCheckpointingLayer):
         hidden_states = torch.einsum(
             "bsd,k->bksd",
             hidden_states,
-            self.residual_stream_scaling_attn
+            torch.sigmoid(self.residual_stream_scaling_attn) * 2
         )
         residual = torch.einsum(
             "bksd,kl->blsd",
             residual,
-            self.residual_stream_mixing_attn
+            self.sinkhorn_knopp(self.residual_stream_mixing_attn)
         )
         # End MCH steps
         hidden_states = residual + hidden_states
@@ -307,7 +314,7 @@ class Qwen3DecoderLayer(GradientCheckpointingLayer):
         hidden_states = torch.einsum(
             "bksd,k->bsd",
             hidden_states,
-            self.residual_stream_weights_mlp
+            torch.sigmoid(self.residual_stream_weights_mlp)
         )
         # End MCH steps
         hidden_states = self.post_attention_layernorm(hidden_states)
@@ -316,12 +323,12 @@ class Qwen3DecoderLayer(GradientCheckpointingLayer):
         hidden_states = torch.einsum(
             "bsd,k->bksd",
             hidden_states,
-            self.residual_stream_scaling_mlp
+            torch.sigmoid(self.residual_stream_scaling_mlp) * 2
         )
         residual = torch.einsum(
             "bksd,kl->blsd",
             residual,
-            self.residual_stream_mixing_mlp
+            self.sinkhorn_knopp(self.residual_stream_mixing_mlp)
         )
         # End MCH steps
         hidden_states = residual + hidden_states
@@ -483,7 +490,7 @@ class Qwen3Model(Qwen3PreTrainedModel):
         hidden_states = torch.einsum(
             "bksd,k->bsd",
             hidden_states,
-            self.residual_stream_weights
+            torch.sigmoid(self.residual_stream_weights)
         )
 
         hidden_states = self.norm(hidden_states)

@@ -3,8 +3,8 @@ wandb_project: "mhc_reproduction"
 
 train:
   model_name: "Qwen/Qwen3-0.6B"
-  output_dir: "./finetuning_results/sft_vanilla_hyperconnections"
-  save_dir: "./checkpoints/vanilla_hyperconnections"
+  output_dir: "./finetuning_results/sft_manifold_hyperconnections"
+  save_dir: "./checkpoints/manifold_hyperconnections"
 
   # Packing settings
   packing: true
@@ -46,8 +46,8 @@ train:
   early_stopping_threshold: 0.01
 
 posttrain:
-  model_path: "checkpoints/vanilla_hyperconnections"
-  output_dir: "grpo_results/grpo_vanilla_hyperconnections"
+  model_path: "checkpoints/manifold_hyperconnections"
+  output_dir: "grpo_results/grpo_manifold_hyperconnections"
   dataset_size: 20  # Set to null for full dataset
 
   # Generation settings
