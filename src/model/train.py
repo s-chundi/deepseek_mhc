@@ -3,9 +3,44 @@ import yaml
 
 from trl import SFTTrainer, SFTConfig
 from transformers import EarlyStoppingCallback
-from model.utils import get_gsm8k_dataset, get_qwen_model, get_model_stats
+from model.utils import get_gsm8k_dataset, get_qwen_model, get_model_stats, LogCompletionsCallback
 import torch
 import wandb
+
+TRAINABLE_PARAM_PATTERNS = [
+    "residual_stream_mixing_attn",
+    "residual_stream_mixing_mlp",
+    "residual_stream_scaling_attn",
+    "residual_stream_scaling_mlp",
+    "residual_stream_weights_attn",
+    "residual_stream_weights_mlp",
+    "residual_stream_weights",
+]
+
+
+def freeze_pretrained_weights(model):
+    """Freeze all weights except the new residual stream parameters."""
+    trainable_count = 0
+    frozen_count = 0
+
+    for name, param in model.named_parameters():
+        if any(pattern in name for pattern in TRAINABLE_PARAM_PATTERNS):
+            if "mixing" in name:
+                param.data.copy_(torch.eye(param.shape[0], param.shape[1], device=param.device))
+            else:
+                pass_through = torch.zeros_like(param.data)
+                pass_through[0] = 1.0
+                param.data.copy_(pass_through)
+            param.data.add_(torch.randn_like(param.data) * 1e-3)
+            param.requires_grad = True
+            trainable_count += 1
+        else:
+            param.requires_grad = False
+            frozen_count += 1
+
+    print(f"Frozen parameters: {frozen_count}")
+    print(f"Trainable parameters: {trainable_count}")
+    return model
 
 
 def load_config():
@@ -42,6 +77,7 @@ def train():
     print_config({"train": cfg})
 
     tokenizer, model = get_qwen_model(cfg["model_name"])
+    model = freeze_pretrained_weights(model)
 
     train_ds = get_gsm8k_dataset(tokenizer, split="train")
     test_ds = get_gsm8k_dataset(tokenizer, split="test")
@@ -81,13 +117,14 @@ def train():
         early_stopping_patience=cfg["early_stopping_patience"],
         early_stopping_threshold=cfg["early_stopping_threshold"],
     )
+    completions_callback = LogCompletionsCallback(num_samples=cfg["num_samples_to_log"])
 
     trainer = SFTTrainer(
         model=model,
         train_dataset=train_ds,
         eval_dataset=test_ds,
         args=training_args,
-        callbacks=[early_stopping],
+        callbacks=[early_stopping, completions_callback],
     )
 
     log_model_stats(model)

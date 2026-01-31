@@ -23,6 +23,7 @@ train:
   # Logging
   report_to: "wandb"
   logging_steps: 50
+  num_samples_to_log: 2
 
   # Evaluation
   do_eval: true
@@ -42,7 +43,7 @@ train:
   early_stopping_threshold: 0.01
 
 posttrain:
-  model_path: "finetuning_results/sft_baseline_very_minor_modifications"
+  model_path: "checkpoints/baseline_very_minor_modifications"
   output_dir: "grpo_results/grpo_baseline_very_minor_modifications"
   dataset_size: 20  # Set to null for full dataset
 
