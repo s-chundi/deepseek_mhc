@@ -37,6 +37,7 @@ def log_model_stats(model):
 
 def train():
     full_config = load_config()
+    wandb.init(project=full_config["wandb_project"])
     cfg = full_config["train"]
     print_config({"train": cfg})
 

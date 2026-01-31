@@ -1,9 +1,10 @@
 # Training configuration for deepseek-mhc
+wandb_project: "mhc_reproduction"
 
 train:
   model_name: "Qwen/Qwen3-0.6B"
-  output_dir: "./finetuning_results/baseline_"
-  save_dir: "./checkpoints/final_model"
+  output_dir: "./finetuning_results/sft_baseline_very_minor_modifications"
+  save_dir: "./checkpoints/baseline_very_minor_modifications"
 
   # Packing settings
   packing: true
@@ -41,8 +42,8 @@ train:
   early_stopping_threshold: 0.01
 
 posttrain:
-  model_path: "checkpoints/final_model"
-  output_dir: "grpo_output"
+  model_path: "finetuning_results/sft_baseline_very_minor_modifications"
+  output_dir: "grpo_results/grpo_baseline_very_minor_modifications"
   dataset_size: 20  # Set to null for full dataset
 
   # Generation settings
