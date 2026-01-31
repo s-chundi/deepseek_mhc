@@ -1,4 +1,6 @@
 """Evaluate the MHC model on GSM8K using lm-evaluation-harness."""
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,6,7"
 
 import argparse
 
@@ -70,13 +72,13 @@ def main():
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=4,
+        default=256,
         help="Batch size for evaluation",
     )
     parser.add_argument(
         "--num-fewshot",
         type=int,
-        default=0,
+        default=5,
         help="Number of few-shot examples",
     )
     parser.add_argument(

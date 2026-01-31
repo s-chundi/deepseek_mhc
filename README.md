@@ -14,7 +14,7 @@ uv sync
 
 ## Quickstart
 
-0. Remove these lines from `src/model/train.py` and `src/model/posttrain.py`:
+0. Remove these lines from `src/model/train.py`, `src/model/posttrain.py`, and `src/model/eval_gsm8k.py`:
 ```python
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "1,6,7"
