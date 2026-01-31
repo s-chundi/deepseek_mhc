@@ -163,6 +163,7 @@ class Qwen3Config(PretrainedConfig):
         max_window_layers=28,
         layer_types=None,
         attention_dropout=0.0,
+        hyperconnection_dim=4,
         **kwargs,
     ):
         self.vocab_size = vocab_size
@@ -174,7 +175,7 @@ class Qwen3Config(PretrainedConfig):
         self.use_sliding_window = use_sliding_window
         self.sliding_window = sliding_window if self.use_sliding_window else None
         self.max_window_layers = max_window_layers
-
+        self.hyperconnection_dim = hyperconnection_dim
         # for backward compatibility
         if num_key_value_heads is None:
             num_key_value_heads = num_attention_heads

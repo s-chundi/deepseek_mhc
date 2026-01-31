@@ -22,7 +22,13 @@ TRAINABLE_PARAM_PATTERNS = [
 
 
 def freeze_pretrained_weights(model):
-    """Freeze all weights except the new residual stream parameters."""
+    """Freeze all weights except the new residual stream parameters.
+
+    Identity initialization for hyperconnections:
+    - weights vectors: [1/K, 1/K, ..., 1/K] so weighted sum preserves input
+    - scaling vectors: [1, 1, ..., 1] so each stream gets full sublayer output
+    - mixing matrices: identity so residual streams don't mix
+    """
     trainable_count = 0
     frozen_count = 0
 
@@ -30,11 +36,11 @@ def freeze_pretrained_weights(model):
         if any(pattern in name for pattern in TRAINABLE_PARAM_PATTERNS):
             if "mixing" in name:
                 param.data.copy_(torch.eye(param.shape[0], param.shape[1], device=param.device))
+            elif "scaling" in name:
+                param.data.copy_(torch.ones_like(param.data))
             else:
-                pass_through = torch.zeros_like(param.data)
-                pass_through[0] = 1.0
-                param.data.copy_(pass_through)
-            param.data.add_(torch.randn_like(param.data) * 1e-3)
+                param.data.copy_(torch.ones_like(param.data) / param.shape[0])
+            param.data.add_(torch.randn_like(param.data) * 1e-4)
             param.requires_grad = True
             trainable_count += 1
         else:
@@ -80,11 +86,10 @@ def train():
     print_config({"train": cfg})
 
     tokenizer, model = get_qwen_model(cfg["model_name"])
-    # model = freeze_pretrained_weights(model)
+    model = freeze_pretrained_weights(model)
 
     train_ds = get_gsm8k_dataset(tokenizer, split="train")
     test_ds = get_gsm8k_dataset(tokenizer, split="test")
-
     training_args = SFTConfig(
         output_dir=cfg["output_dir"],
 

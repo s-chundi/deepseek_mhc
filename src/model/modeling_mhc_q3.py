@@ -223,6 +223,39 @@ class Qwen3DecoderLayer(GradientCheckpointingLayer):
         self.input_layernorm = Qwen3RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.post_attention_layernorm = Qwen3RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.attention_type = config.layer_types[layer_idx]
+        
+        self.hyperconnection_dim = config.hyperconnection_dim
+
+        self.residual_stream_weights_attn = nn.Parameter(
+            torch.zeros(self.hyperconnection_dim)
+        )
+        self.residual_stream_scaling_attn = nn.Parameter(
+            torch.zeros(self.hyperconnection_dim)
+        )
+        self.residual_stream_mixing_attn = nn.Parameter(
+            torch.eye(self.hyperconnection_dim)
+        )
+
+        self.residual_stream_weights_mlp = nn.Parameter(
+            torch.zeros(self.hyperconnection_dim)
+        )
+        self.residual_stream_scaling_mlp = nn.Parameter(
+            torch.zeros(self.hyperconnection_dim)
+        )
+        self.residual_stream_mixing_mlp = nn.Parameter(
+            torch.eye(self.hyperconnection_dim)
+        )
+
+    def _ensure_hyperconnection_device(self):
+        """Move hyperconnection parameters to match this layer's device."""
+        target_device = self.mlp.gate_proj.weight.device
+        if self.residual_stream_weights_attn.device != target_device:
+            self.residual_stream_weights_attn.data = self.residual_stream_weights_attn.data.to(target_device)
+            self.residual_stream_scaling_attn.data = self.residual_stream_scaling_attn.data.to(target_device)
+            self.residual_stream_mixing_attn.data = self.residual_stream_mixing_attn.data.to(target_device)
+            self.residual_stream_weights_mlp.data = self.residual_stream_weights_mlp.data.to(target_device)
+            self.residual_stream_scaling_mlp.data = self.residual_stream_scaling_mlp.data.to(target_device)
+            self.residual_stream_mixing_mlp.data = self.residual_stream_mixing_mlp.data.to(target_device)
 
     @deprecate_kwarg("past_key_value", new_name="past_key_values", version="4.58")
     def forward(
@@ -236,9 +269,16 @@ class Qwen3DecoderLayer(GradientCheckpointingLayer):
         position_embeddings: Optional[tuple[torch.Tensor, torch.Tensor]] = None,  # necessary, but kept here for BC
         **kwargs: Unpack[TransformersKwargs],
     ) -> torch.Tensor:
+        self._ensure_hyperconnection_device()
         residual = hidden_states
+        # Begin MCH steps
+        hidden_states = torch.einsum(
+            "bksd,k->bsd",
+            hidden_states,
+            self.residual_stream_weights_attn
+        )
+        # End MCH steps
         hidden_states = self.input_layernorm(hidden_states)
-        # Self Attention
         hidden_states, _ = self.self_attn(
             hidden_states=hidden_states,
             attention_mask=attention_mask,
@@ -249,12 +289,41 @@ class Qwen3DecoderLayer(GradientCheckpointingLayer):
             position_embeddings=position_embeddings,
             **kwargs,
         )
+        # Begin MCH steps
+        hidden_states = torch.einsum(
+            "bsd,k->bksd",
+            hidden_states,
+            self.residual_stream_scaling_attn
+        )
+        residual = torch.einsum(
+            "bksd,kl->blsd",
+            residual,
+            self.residual_stream_mixing_attn
+        )
+        # End MCH steps
         hidden_states = residual + hidden_states
-
-        # Fully Connected
         residual = hidden_states
+        # Begin MCH steps
+        hidden_states = torch.einsum(
+            "bksd,k->bsd",
+            hidden_states,
+            self.residual_stream_weights_mlp
+        )
+        # End MCH steps
         hidden_states = self.post_attention_layernorm(hidden_states)
         hidden_states = self.mlp(hidden_states)
+        # Begin MCH steps
+        hidden_states = torch.einsum(
+            "bsd,k->bksd",
+            hidden_states,
+            self.residual_stream_scaling_mlp
+        )
+        residual = torch.einsum(
+            "bksd,kl->blsd",
+            residual,
+            self.residual_stream_mixing_mlp
+        )
+        # End MCH steps
         hidden_states = residual + hidden_states
         return hidden_states
 
@@ -330,8 +399,16 @@ class Qwen3Model(Qwen3PreTrainedModel):
         self.gradient_checkpointing = False
         self.has_sliding_layers = "sliding_attention" in self.config.layer_types
 
+        self.hyperconnection_dim = config.hyperconnection_dim
+        self.residual_stream_weights = nn.Parameter(torch.zeros(self.hyperconnection_dim))
         # Initialize weights and apply final processing
         self.post_init()
+
+    def _ensure_hyperconnection_device(self):
+        """Move hyperconnection parameters to match the final norm's device."""
+        target_device = self.norm.weight.device
+        if self.residual_stream_weights.device != target_device:
+            self.residual_stream_weights.data = self.residual_stream_weights.data.to(target_device)
 
     @check_model_inputs
     @auto_docstring
@@ -388,6 +465,8 @@ class Qwen3Model(Qwen3PreTrainedModel):
         # create position embeddings to be shared across the decoder layers
         position_embeddings = self.rotary_emb(hidden_states, position_ids)
 
+        B, S, D = hidden_states.shape
+        hidden_states = hidden_states[:, None, :, :].expand(B, self.hyperconnection_dim, S, D)
         for decoder_layer in self.layers[: self.config.num_hidden_layers]:
             hidden_states = decoder_layer(
                 hidden_states,
@@ -399,6 +478,13 @@ class Qwen3Model(Qwen3PreTrainedModel):
                 position_embeddings=position_embeddings,
                 **kwargs,
             )
+
+        self._ensure_hyperconnection_device()
+        hidden_states = torch.einsum(
+            "bksd,k->bsd",
+            hidden_states,
+            self.residual_stream_weights
+        )
 
         hidden_states = self.norm(hidden_states)
         return BaseModelOutputWithPast(

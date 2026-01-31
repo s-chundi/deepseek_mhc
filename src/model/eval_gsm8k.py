@@ -49,7 +49,7 @@ def evaluate_gsm8k(
     )
 
     print("\n" + "=" * 60)
-    print("GSM8K Results")
+    print(f"GSM8K Results (num_fewshot = {num_fewshot})")
     print("=" * 60)
 
     gsm8k_results = results["results"]["gsm8k"]
