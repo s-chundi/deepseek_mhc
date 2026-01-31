@@ -14,26 +14,19 @@ uv sync
 
 ## Quickstart
 
-1. Save the model with custom parameters:
+1. SFT the model (needed to initialize the custom parameters):
 
 ```bash
-cd src
-uv run python -m model.train # Just saves the model at this stage, doesn't actually train anything
+uv run src/model/train.py
 ```
 
-This loads `Qwen/Qwen3-0.6B`, initializes the custom parameters, and saves to `./checkpoints/initial_model`.
+This loads `Qwen/Qwen3-0.6B`, initializes the custom parameters, and saves based on `config.yaml`
 
 2. Evaluate on GSM8K:
 
 ```bash
-uv run python -m model.eval_gsm8k ./checkpoints/initial_model
+uv run src/model/eval_gsm8k.py [path to model checkpoint]
 ```
-
-Options:
-- `--batch-size N` - Batch size (default: 4)
-- `--num-fewshot 0` - Few-shot examples (default: 0)
-- `--limit N` - Limit examples for debugging
-- `--device DEVICE` - cuda, mps, or cpu (default: mps)
 
 ## Project Structure
 
@@ -42,6 +35,7 @@ src/model/
   configuration_mhc_q3.py  # Custom Qwen3Config with hyperconnection_dim
   modeling_mhc_q3.py       # Custom Qwen3 model with residual stream weights
   utils.py                 # Model loading and dataset utilities
-  train.py                 # Save initial model checkpoint
+  train.py                 # SFT the model
+  posttrain.py             # Posttrain the model
   eval_gsm8k.py            # Evaluate on GSM8K benchmark
 ```
