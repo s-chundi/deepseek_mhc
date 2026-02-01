@@ -17,7 +17,7 @@ uv sync
 0. Remove these lines from `src/model/train.py`, `src/model/posttrain.py`, and `src/model/eval_gsm8k.py`:
 ```python
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,6,7"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,5,6,7"
 ```
 (I'm on a shared GPU and this was the quickest way to get the unused GPUs)
 

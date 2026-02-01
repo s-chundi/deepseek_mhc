@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,6,7"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,5,6,7"
 
 import logging
 logging.getLogger("transformers.modeling_utils").setLevel(logging.ERROR)
