@@ -11,7 +11,7 @@ train:
   packing_strategy: "wrapped"
   max_length: 1024
 
-  warmup_ratio: 0.1                                                                              
+  warmup_ratio: 0.1                                                 
   lr_scheduler_type: "cosine"
 
   # Training params
