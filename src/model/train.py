@@ -3,6 +3,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "1,5,6,7"
 
 from pathlib import Path
 import yaml
+import sys
 
 from trl import SFTTrainer, SFTConfig
 from transformers import EarlyStoppingCallback
