@@ -258,6 +258,7 @@ class Qwen3DecoderLayer(GradientCheckpointingLayer):
             self.residual_stream_mixing_mlp.data = self.residual_stream_mixing_mlp.data.to(target_device)
 
     def sinkhorn_knopp(self, x):
+        x = torch.exp(x)
         for _ in range(5):
             x = x / x.sum(dim=0, keepdim=True)
             x = x / x.sum(dim=1, keepdim=True)
